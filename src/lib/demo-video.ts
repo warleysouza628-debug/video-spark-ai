@@ -25,7 +25,7 @@ function rng(seed: number) {
   };
 }
 
-function wrap(ctx: CanvasRenderingContext2D, text: string, max: number) {
+function wrap(ctx: OffscreenCanvasRenderingContext2D, text: string, max: number) {
   const words = text.split(/\s+/);
   const lines: string[] = [];
   let line = "";
