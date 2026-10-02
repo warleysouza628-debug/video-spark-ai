@@ -60,12 +60,24 @@ export async function generateDemoVideo(opts: {
   const canvas = new OffscreenCanvas(W, H);
   const ctx = canvas.getContext("2d")!;
 
-  let codec = "avc1.42001f";
   const base = { width: W, height: H, bitrate: 4_000_000, framerate: fps };
-  if (!(await VideoEncoder.isConfigSupported({ ...base, codec })).supported) codec = "avc1.4d0028";
+  // H.264 first (best compatibility); VP9-in-MP4 fallback for browsers without H.264 encoding.
+  const candidates: { codec: string; mux: "avc" | "vp9" }[] = [
+    { codec: "avc1.42001f", mux: "avc" },
+    { codec: "avc1.4d0028", mux: "avc" },
+    { codec: "vp09.00.31.08", mux: "vp9" },
+  ];
+  let chosen: (typeof candidates)[number] | null = null;
+  for (const c of candidates) {
+    try {
+      if ((await VideoEncoder.isConfigSupported({ ...base, codec: c.codec })).supported) { chosen = c; break; }
+    } catch { /* try next */ }
+  }
+  if (!chosen) throw new Error("Nenhum codificador de vídeo disponível neste navegador.");
+  const codec = chosen.codec;
 
   const target = new ArrayBufferTarget();
-  const muxer = new Muxer({ target, video: { codec: "avc", width: W, height: H }, fastStart: "in-memory" });
+  const muxer = new Muxer({ target, video: { codec: chosen.mux, width: W, height: H }, fastStart: "in-memory" });
   let error: unknown = null;
   const encoder = new VideoEncoder({
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
